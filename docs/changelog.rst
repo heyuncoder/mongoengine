@@ -4,6 +4,9 @@ Changelog
 
 Development
 ===========
+- Add support for MongoDB 3.6 and Python3.7 in travis
+- Fix querying on List(EmbeddedDocument) subclasses fields #1961 #1492
+- Fix querying on (Generic)EmbeddedDocument subclasses fields #475
 - expose `mongoengine.connection.disconnect` and `mongoengine.connection.disconnect_all`
 - Fix disconnect function #566 #1599 #605 #607 #1213 #565
 - Improve connect/disconnect documentations
@@ -12,6 +15,7 @@ Development
     - disconnect now clears `mongoengine.connection._connection_settings`
     - disconnect now clears the cached attribute `Document._collection`
 - POTENTIAL BREAKING CHANGE: Aggregate gives wrong results when used with a queryset having limit and skip #2029
+- Fix the default write concern of .save that was overwriting the connection write concern #568
 - mongoengine now requires pymongo>=3.5 #2017
 - Generate Unique Indices for SortedListField and EmbeddedDocumentListFields #2020
 - connect() fails immediately when db name contains invalid characters #2031 #1718

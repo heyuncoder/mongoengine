@@ -152,12 +152,10 @@ class URLField(StringField):
         scheme = value.split('://')[0].lower()
         if scheme not in self.schemes:
             self.error(u'Invalid scheme {} in URL: {}'.format(scheme, value))
-            return
 
         # Then check full URL
         if not self.url_regex.match(value):
             self.error(u'Invalid URL: {}'.format(value))
-            return
 
 
 class EmailField(StringField):
@@ -259,10 +257,10 @@ class EmailField(StringField):
             try:
                 domain_part = domain_part.encode('idna').decode('ascii')
             except UnicodeError:
-                self.error(self.error_msg % value)
+                self.error("%s %s" % (self.error_msg % value, "(domain failed IDN encoding)"))
             else:
                 if not self.validate_domain_part(domain_part):
-                    self.error(self.error_msg % value)
+                    self.error("%s %s" % (self.error_msg % value, "(domain validation failed)"))
 
 
 class IntField(BaseField):
@@ -700,7 +698,11 @@ class EmbeddedDocumentField(BaseField):
         self.document_type.validate(value, clean)
 
     def lookup_member(self, member_name):
-        return self.document_type._fields.get(member_name)
+        doc_and_subclasses = [self.document_type] + self.document_type.__subclasses__()
+        for doc_type in doc_and_subclasses:
+            field = doc_type._fields.get(member_name)
+            if field:
+                return field
 
     def prepare_query_value(self, op, value):
         if value is not None and not isinstance(value, self.document_type):
@@ -747,12 +749,13 @@ class GenericEmbeddedDocumentField(BaseField):
         value.validate(clean=clean)
 
     def lookup_member(self, member_name):
-        if self.choices:
-            for choice in self.choices:
-                field = choice._fields.get(member_name)
+        document_choices = self.choices or []
+        for document_choice in document_choices:
+            doc_and_subclasses = [document_choice] + document_choice.__subclasses__()
+            for doc_type in doc_and_subclasses:
+                field = doc_type._fields.get(member_name)
                 if field:
                     return field
-        return None
 
     def to_mongo(self, document, use_db_field=True, fields=None):
         if document is None:
