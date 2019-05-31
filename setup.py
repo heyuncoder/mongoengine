@@ -9,6 +9,7 @@ except ImportError:
     pass
 
 DESCRIPTION = (
+    'a copy of MongoEngine'
     'MongoEngine is a Python Object-Document '
     'Mapper for working with MongoDB.'
 )
@@ -41,9 +42,6 @@ CLASSIFIERS = [
     'License :: OSI Approved :: MIT License',
     'Operating System :: OS Independent',
     'Programming Language :: Python',
-    "Programming Language :: Python :: 2",
-    "Programming Language :: Python :: 2.7",
-    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.5",
     "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -66,7 +64,7 @@ else:
     extra_opts['tests_require'] += ['python-dateutil']
 
 setup(
-    name='mongoengine',
+    name='balala-mongoengine',
     version=VERSION,
     author='Harry Marr',
     author_email='harry.marr@gmail.com',
@@ -80,7 +78,7 @@ setup(
     long_description=LONG_DESCRIPTION,
     platforms=['any'],
     classifiers=CLASSIFIERS,
-    install_requires=['pymongo>=3.5', 'six'],
+    install_requires=['pymongo>=3.6', 'six'],
     test_suite='nose.collector',
     **extra_opts
 )

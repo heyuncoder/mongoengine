@@ -392,10 +392,10 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
         try:
             # Save a new document or update an existing one
             if created:
-                object_id = self._save_create(doc, force_insert, write_concern)
+                object_id = self._save_create(doc, force_insert, write_concern, **kwargs)
             else:
                 object_id, created = self._save_update(doc, save_condition,
-                                                       write_concern)
+                                                       write_concern, **kwargs)
 
             if cascade is None:
                 cascade = (self._meta.get('cascade', False) or
@@ -438,7 +438,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
 
         return self
 
-    def _save_create(self, doc, force_insert, write_concern):
+    def _save_create(self, doc, force_insert, write_concern, **kwargs):
         """Save a new document.
 
         Helper method, should only be used inside save().
@@ -446,16 +446,16 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
         collection = self._get_collection()
         with set_write_concern(collection, write_concern) as wc_collection:
             if force_insert:
-                return wc_collection.insert_one(doc).inserted_id
+                return wc_collection.insert_one(doc, **kwargs).inserted_id
             # insert_one will provoke UniqueError alongside save does not
             # therefore, it need to catch and call replace_one.
             if '_id' in doc:
                 raw_object = wc_collection.find_one_and_replace(
-                    {'_id': doc['_id']}, doc)
+                    {'_id': doc['_id']}, doc, **kwargs)
                 if raw_object:
                     return doc['_id']
 
-            object_id = wc_collection.insert_one(doc).inserted_id
+            object_id = wc_collection.insert_one(doc, **kwargs).inserted_id
 
         return object_id
 
@@ -474,7 +474,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
 
         return update_doc
 
-    def _save_update(self, doc, save_condition, write_concern):
+    def _save_update(self, doc, save_condition, write_concern, **kwargs):
         """Update an existing document.
 
         Helper method, should only be used inside save().
@@ -503,7 +503,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
         if update_doc:
             upsert = save_condition is None
             last_error = collection.update(select_dict, update_doc,
-                                           upsert=upsert, **write_concern)
+                                           upsert=upsert, **write_concern, **kwargs)
             if not upsert and last_error['n'] == 0:
                 raise SaveConditionError('Race condition preventing'
                                          ' document update detected')
