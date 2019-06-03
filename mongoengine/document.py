@@ -313,7 +313,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
 
     def save(self, force_insert=False, validate=True, clean=True,
              write_concern=None, cascade=None, cascade_kwargs=None,
-             _refs=None, save_condition=None, signal_kwargs=None, **kwargs):
+             _refs=None, save_condition=None, signal_kwargs=None, session=None):
         """Save the :class:`~mongoengine.Document` to the database. If the
         document already exists, it will be updated, otherwise it will be
         created.
@@ -392,10 +392,10 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
         try:
             # Save a new document or update an existing one
             if created:
-                object_id = self._save_create(doc, force_insert, write_concern, **kwargs)
+                object_id = self._save_create(doc, force_insert, write_concern, session=session)
             else:
                 object_id, created = self._save_update(doc, save_condition,
-                                                       write_concern, **kwargs)
+                                                       write_concern, session=session)
 
             if cascade is None:
                 cascade = (self._meta.get('cascade', False) or
@@ -438,7 +438,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
 
         return self
 
-    def _save_create(self, doc, force_insert, write_concern, **kwargs):
+    def _save_create(self, doc, force_insert, write_concern, session=None):
         """Save a new document.
 
         Helper method, should only be used inside save().
@@ -446,16 +446,16 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
         collection = self._get_collection()
         with set_write_concern(collection, write_concern) as wc_collection:
             if force_insert:
-                return wc_collection.insert_one(doc, **kwargs).inserted_id
+                return wc_collection.insert_one(doc, session=session).inserted_id
             # insert_one will provoke UniqueError alongside save does not
             # therefore, it need to catch and call replace_one.
             if '_id' in doc:
                 raw_object = wc_collection.find_one_and_replace(
-                    {'_id': doc['_id']}, doc, **kwargs)
+                    {'_id': doc['_id']}, doc, session=session)
                 if raw_object:
                     return doc['_id']
 
-            object_id = wc_collection.insert_one(doc, **kwargs).inserted_id
+            object_id = wc_collection.insert_one(doc, session=session).inserted_id
 
         return object_id
 
@@ -474,7 +474,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
 
         return update_doc
 
-    def _save_update(self, doc, save_condition, write_concern, **kwargs):
+    def _save_update(self, doc, save_condition, write_concern, session=None):
         """Update an existing document.
 
         Helper method, should only be used inside save().
@@ -506,7 +506,8 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
                 last_error = wc_collection.update_one(
                     select_dict,
                     update_doc,
-                    upsert=upsert
+                    upsert=upsert,
+                    session=session
                 ).raw_result
             if not upsert and last_error['n'] == 0:
                 raise SaveConditionError('Race condition preventing'
@@ -520,8 +521,8 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
                     # https://github.com/MongoEngine/mongoengine/issues/564
 
         return object_id, created
-
-    def cascade_save(self, **kwargs):
+    # 级联保存
+    def cascade_save(self, session=None):
         """Recursively save any references and generic references on the
         document.
         """
@@ -546,7 +547,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
             if ref and ref_id not in _refs:
                 _refs.append(ref_id)
                 kwargs["_refs"] = _refs
-                ref.save(**kwargs)
+                ref.save(session=session)
                 ref._changed_fields = []
 
     @property
@@ -574,7 +575,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
             select_dict['__'.join(actual_key)] = val
         return select_dict
 
-    def update(self, **kwargs):
+    def update(self, session=None):
         """Performs an update on the :class:`~mongoengine.Document`
         A convenience wrapper to :meth:`~mongoengine.QuerySet.update`.
 
@@ -586,15 +587,15 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
                 query = self.to_mongo()
                 if '_cls' in query:
                     del query['_cls']
-                return self._qs.filter(**query).update_one(**kwargs)
+                return self._qs.filter(**query).update_one(session=session)
             else:
                 raise OperationError(
                     'attempt to update a document not yet saved')
 
         # Need to add shard key to query, or you get an error
-        return self._qs.filter(**self._object_key).update_one(**kwargs)
+        return self._qs.filter(**self._object_key).update_one(session=session)
 
-    def delete(self, signal_kwargs=None, **write_concern):
+    def delete(self, signal_kwargs=None, session=None, **write_concern):
         """Delete the :class:`~mongoengine.Document` from the database. This
         will only take effect if the document has been previously saved.
 
@@ -620,7 +621,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
 
         try:
             self._qs.filter(
-                **self._object_key).delete(write_concern=write_concern, _from_doc_delete=True)
+                **self._object_key).delete(write_concern=write_concern, _from_doc_delete=True,session=session)
         except pymongo.errors.OperationFailure as err:
             message = u'Could not delete document (%s)' % err.message
             raise OperationError(message)

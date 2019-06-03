@@ -78,7 +78,7 @@ setup(
     long_description=LONG_DESCRIPTION,
     platforms=['any'],
     classifiers=CLASSIFIERS,
-    install_requires=['pymongo>=3.6', 'six'],
+    install_requires=['pymongo>=3.8', 'six'],
     test_suite='nose.collector',
     **extra_opts
 )
