@@ -1,6 +1,6 @@
 Metadata-Version: 1.2
 Name: balala-mongoengine
-Version: 0.0.1
+Version: 0.0.2
 Summary: a copy of MongoEngineMongoEngine is a Python Object-Document Mapper for working with MongoDB.
 Home-page: http://mongoengine.org/
 Author: Harry Marr
@@ -37,10 +37,10 @@ Description: ===========
         
         Supported MongoDB Versions
         ==========================
-        MongoEngine is currently tested against MongoDB v2.6, v3.0, v3.2 and v3.4. Future
+        MongoEngine is currently tested against MongoDB v2.6, v3.0, v3.2, v3.4 and v3.6. Future
         versions should be supported as well, but aren't actively tested at the moment.
         Make sure to open an issue or submit a pull request if you experience any
-        problems with MongoDB v3.4+.
+        problems with MongoDB v3.6+.
         
         Installation
         ============
@@ -58,7 +58,7 @@ Description: ===========
         All of the dependencies can easily be installed via `pip <https://pip.pypa.io/>`_.
         At the very least, you'll need these two packages to use MongoEngine:
         
-        - pymongo>=3.5
+        - pymongo>=3.8
         - six>=1.10.0
         
         If you utilize a ``DateTimeField``, you might also use a more flexible date parser:
