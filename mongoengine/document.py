@@ -617,11 +617,11 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
         FileField = _import_class('FileField')
         for name, field in iteritems(self._fields):
             if isinstance(field, FileField):
-                getattr(self, name).delete()
+                getattr(self, name).delete(session=session)
 
         try:
             self._qs.filter(
-                **self._object_key).delete(write_concern=write_concern, _from_doc_delete=True,session=session)
+                **self._object_key).delete(write_concern=write_concern, _from_doc_delete=True, session=session)
         except pymongo.errors.OperationFailure as err:
             message = u'Could not delete document (%s)' % err.message
             raise OperationError(message)
@@ -790,7 +790,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
                 klass._meta['delete_rules'] = delete_rules
 
     @classmethod
-    def drop_collection(cls):
+    def drop_collection(cls,session=None):
         """Drops the entire collection associated with this
         :class:`~mongoengine.Document` type from the database.
 
@@ -806,7 +806,7 @@ class Document(six.with_metaclass(TopLevelDocumentMetaclass, BaseDocument)):
                                  '(is it abstract ?)' % cls)
         cls._collection = None
         db = cls._get_db()
-        db.drop_collection(coll_name)
+        db.drop_collection(coll_name, session=session)
 
     @classmethod
     def create_index(cls, keys, background=False, **kwargs):

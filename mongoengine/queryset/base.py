@@ -295,7 +295,7 @@ class BaseQuerySet(object):
         return result
 
     def insert(self, doc_or_docs, load_bulk=True,
-               write_concern=None, signal_kwargs=None):
+               write_concern=None, signal_kwargs=None, session=None):
         """bulk insert documents
 
         :param doc_or_docs: a document or list of documents to be inserted
@@ -351,7 +351,7 @@ class BaseQuerySet(object):
                 insert_func = collection.insert_one
 
         try:
-            inserted_result = insert_func(raw)
+            inserted_result = insert_func(raw,session=session)
             ids = [inserted_result.inserted_id] if return_one else inserted_result.inserted_ids
         except pymongo.errors.DuplicateKeyError as err:
             message = 'Could not save document (%s)'
@@ -399,7 +399,7 @@ class BaseQuerySet(object):
         return count
 
     def delete(self, write_concern=None, _from_doc_delete=False,
-               cascade_refs=None):
+               cascade_refs=None, session=None):
         """Delete the documents matched by the query.
 
         :param write_concern: Extra keyword arguments are passed down which
@@ -432,7 +432,7 @@ class BaseQuerySet(object):
         if call_document_delete:
             cnt = 0
             for doc in queryset:
-                doc.delete(**write_concern)
+                doc.delete(session=session, **write_concern)
                 cnt += 1
             return cnt
 
@@ -470,22 +470,25 @@ class BaseQuerySet(object):
                                                'pk__nin': cascade_refs})
                 if refs.count() > 0:
                     refs.delete(write_concern=write_concern,
-                                cascade_refs=cascade_refs)
+                                cascade_refs=cascade_refs, session=session)
             elif rule == NULLIFY:
                 document_cls.objects(**{field_name + '__in': self}).update(
                     write_concern=write_concern,
+                    session=session,
                     **{'unset__%s' % field_name: 1})
             elif rule == PULL:
                 document_cls.objects(**{field_name + '__in': self}).update(
                     write_concern=write_concern,
+                    session=session,
                     **{'pull_all__%s' % field_name: self})
 
-        result = queryset._collection.remove(queryset._query, **write_concern)
+        # print(queryset._query)
+        result = queryset._collection.delete_many(queryset._query, session=session, **write_concern)
         if result:
-            return result.get('n')
+            return result.deleted_count
 
     def update(self, upsert=False, multi=True, write_concern=None,
-               full_result=False, **update):
+               full_result=False, session=None, **update):
         """Perform an atomic update on the fields matched by the query.
 
         :param upsert: insert if document doesn't exist (default ``False``)
@@ -526,7 +529,7 @@ class BaseQuerySet(object):
                 update_func = collection.update_one
                 if multi:
                     update_func = collection.update_many
-                result = update_func(query, update, upsert=upsert)
+                result = update_func(query, update, upsert=upsert, session=session)
             if full_result:
                 return result
             elif result.raw_result:
@@ -539,7 +542,7 @@ class BaseQuerySet(object):
                 raise OperationError(message)
             raise OperationError(u'Update failed (%s)' % six.text_type(err))
 
-    def upsert_one(self, write_concern=None, **update):
+    def upsert_one(self, write_concern=None, session=None, **update):
         """Overwrite or add the first document matched by the query.
 
         :param write_concern: Extra keyword arguments are passed down which
@@ -557,7 +560,7 @@ class BaseQuerySet(object):
 
         atomic_update = self.update(multi=False, upsert=True,
                                     write_concern=write_concern,
-                                    full_result=True, **update)
+                                    full_result=True, session=session, **update)
 
         if atomic_update.raw_result['updatedExisting']:
             document = self.get()
@@ -565,7 +568,7 @@ class BaseQuerySet(object):
             document = self._document.objects.with_id(atomic_update.upserted_id)
         return document
 
-    def update_one(self, upsert=False, write_concern=None, full_result=False, **update):
+    def update_one(self, upsert=False, write_concern=None, full_result=False, session=None, **update):
         """Perform an atomic update on the fields of the first document
         matched by the query.
 
@@ -588,9 +591,10 @@ class BaseQuerySet(object):
             multi=False,
             write_concern=write_concern,
             full_result=full_result,
+            session=session,
             **update)
 
-    def modify(self, upsert=False, full_response=False, remove=False, new=False, **update):
+    def modify(self, upsert=False, full_response=False, remove=False, new=False, session=None, **update):
         """Update and return the updated document.
 
         Returns either the document before or after modification based on `new`
@@ -633,14 +637,14 @@ class BaseQuerySet(object):
                 warnings.warn(msg, DeprecationWarning)
             if remove:
                 result = queryset._collection.find_one_and_delete(
-                    query, sort=sort, **self._cursor_args)
+                    query, sort=sort, session=session, **self._cursor_args)
             else:
                 if new:
                     return_doc = ReturnDocument.AFTER
                 else:
                     return_doc = ReturnDocument.BEFORE
                 result = queryset._collection.find_one_and_update(
-                    query, update, upsert=upsert, sort=sort, return_document=return_doc,
+                    query, update, upsert=upsert, sort=sort, return_document=return_doc, session=session,
                     **self._cursor_args)
         except pymongo.errors.DuplicateKeyError as err:
             raise NotUniqueError(u'Update failed (%s)' % err)
